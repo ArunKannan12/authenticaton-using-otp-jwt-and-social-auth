@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.utils.translation import gettext_lazy as _
 from rest_framework_simplejwt.tokens import RefreshToken
 import pyotp
+from django.utils import timezone
 
 class CustomUserManager(BaseUserManager):
     def email_validator(self, email):
@@ -59,7 +60,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now=True)
-    secret_key = models.CharField(max_length=32, blank=True)
+    secret_key = models.CharField(max_length=32, blank=True,null=True)
     otp_expiry = models.DateTimeField(blank=True, null=True)
 
     USERNAME_FIELD = "email"
@@ -81,6 +82,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             'access': str(refresh.access_token),
         }
 
+    def is_otp_valid(self):
+        if not self.otp_expiry:
+            return False
+        return timezone.now() < self.otp_expiry
 
 class OneTimePassword(models.Model):
     user=models.OneToOneField(CustomUser,on_delete=models.CASCADE)
