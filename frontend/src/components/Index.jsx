@@ -4,6 +4,8 @@ import Profile from "./Profile";
 import ForgotPassword from "./ForgotPassword";
 import VerifyEmail from "./VerifyEmail";
 
+import ResetPassword from "./resetPassword";
+
 
 
 export {
@@ -12,5 +14,6 @@ export {
     Profile,
     ForgotPassword,
     VerifyEmail,
+    ResetPassword
     
 }

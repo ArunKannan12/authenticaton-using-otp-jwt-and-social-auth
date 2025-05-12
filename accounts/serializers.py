@@ -12,32 +12,42 @@ from django.utils.encoding import force_bytes
 from rest_framework_simplejwt.tokens import RefreshToken,Token
 from rest_framework_simplejwt.exceptions import TokenError,InvalidToken
 from rest_framework.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
-    password1=serializers.CharField(max_length=68,min_length=6,write_only=True)
-    password2=serializers.CharField(max_length=68,min_length=6,write_only=True)
-    class Meta:
-        model=CustomUser
-        fields=['email','first_name','last_name','password1','password2']
+    password1 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
 
+    class Meta:
+        model = CustomUser
+        fields = ['email', 'first_name', 'last_name', 'password1', 'password2']
+
+    def validate_email(self, value):
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already registered.")
+        return value
 
     def validate(self, attrs):
-        password1=attrs.get('password1')
-        password2=attrs.get('password2')
-        if password1 != password2:
-            raise serializers.ValidationError("Password do not match")
-        return attrs
-        
-    
-    def create(self, validated_data):
-        validated_data.pop('password2')  # Not needed anymore
-        password = validated_data.pop('password1')
+        password1 = attrs.get('password1')
+        password2 = attrs.get('password2')
 
-        user = CustomUser.objects.create_user(
-            password=password,
-            **validated_data
-        )
+        if password1 != password2:
+            raise serializers.ValidationError({"password2": "Passwords do not match."})
+
+        # Optional: Use Django's password validators
+        try:
+            validate_password(password1)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"password1": list(e.messages)})
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('password2')
+        password = validated_data.pop('password1')
+        user = CustomUser.objects.create_user(password=password, **validated_data)
         return user
     
 
@@ -90,24 +100,34 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         request=self.context.get('request')
         email=value
 
-        if CustomUser.objects.filter(email=email).exists():
-            user=CustomUser.objects.get(email=email)
+        try:
+            user = CustomUser.objects.get(email=email)
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError("No account found with this email.")
+        
 
-            uidb64 = urlsafe_base64_encode(force_bytes(user.id))
-            token=PasswordResetTokenGenerator().make_token(user)
-            site_domain=get_current_site(request).domain
-            
-            relative_link=reverse('password-reset-confirm',kwargs={'uidb64':uidb64,'token':token})
-            abslink=f"http://{site_domain}{relative_link}"
+        if not user.is_verified:
+            raise serializers.ValidationError('no account found with this email')
+        
 
-            email_body=f"hi {user.email },\n use the link to reset you password \n {abslink}"
+        if user.auth_provider == 'google':
+            raise serializers.ValidationError("You cannot reset your password because you logged in via Google. Please use Google login.")
 
-            data={
-                'email_body':email_body,
-                'email_subject':'reset your password',
-                'to_email':user.email
-            }
-            send_normal_email(data)
+        uidb64 = urlsafe_base64_encode(force_bytes(user.id))
+        token=PasswordResetTokenGenerator().make_token(user)
+        site_domain=get_current_site(request).domain
+        
+        relative_link=reverse('password-reset-confirm',kwargs={'uidb64':uidb64,'token':token})
+        abslink=f"http://{site_domain}{relative_link}"
+
+        email_body=f"hi {user.email },\n use the link to reset you password \n {abslink}"
+
+        data={
+            'email_body':email_body,
+            'email_subject':'reset your password',
+            'to_email':user.email
+        }
+        send_normal_email(data)
 
 
 

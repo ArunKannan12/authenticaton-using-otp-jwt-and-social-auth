@@ -38,7 +38,7 @@ class RegisterUserView(GenericAPIView):
     def post(self, request):
         user_data = request.data
         serializer = self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
+        if serializer.is_valid():
             user = serializer.save()
             expiry_time = timezone.now() + timedelta(minutes=5)
             user.secret_key=pyotp.random_base32()

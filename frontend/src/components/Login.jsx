@@ -129,6 +129,16 @@ const Login = () => {
                   </span>
                 </div>
 
+                  <div className="mb-3 text-end">
+                    <span 
+                      className="text-primary" 
+                      style={{ cursor: 'pointer', fontSize: '0.9rem' }} 
+                      onClick={() => navigate('/forgot-password')}
+                    >
+                    Forgot password?
+                    </span>
+                  </div>
+
                 {error && <p className="text-danger">{error}</p>}
 
                 <div className="d-grid">

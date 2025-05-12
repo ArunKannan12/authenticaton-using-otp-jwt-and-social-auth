@@ -62,12 +62,17 @@ const Signup = () => {
       if (res.status === 201) {
         localStorage.setItem('emailForVerification', email);
         toast.success(response.message);
-        setErrors(null);
+        setErrors({});
         navigate("/otp/verify-otp");
       }
     } catch (err) {
-      const apiError = err.response?.data?.detail || "Registration failed. Please try again";
-      setErrors({ api: apiError });
+      const apiErrors = err.response?.data;
+
+      if (typeof apiErrors === 'object') {
+        setErrors(apiErrors);
+      }else{
+        setErrors({'api':"Registration failed.Please try again"})
+      }
     }
 
     localStorage.setItem("email", formData.email);
@@ -113,10 +118,11 @@ const handleGoogleLogin= async (credentialResponse) => {
                   <label htmlFor="email" className="form-label">Email Address</label>
                   <input type="email"
                     name="email"
-                    className="form-control form-control-lg"
+                    className={`form-control ${errors.email ? 'is-invalid' : ''}`}
                     placeholder="you@example.com"
                     value={email}
                     onChange={handleOnChange} />
+                    {errors.email && <div className="invalid-feedback">{errors.email}</div>}
                 </div>
 
                 <div className="mb-3">
