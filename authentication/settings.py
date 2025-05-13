@@ -211,3 +211,4 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_EXTRA_DATA = ['first_name', 'last_name']
 SOCIAL_AUTH_LOGIN_ERROR_URL = '/login-error/'
 
 
+FRONTEND_URL = "http://localhost:5173"

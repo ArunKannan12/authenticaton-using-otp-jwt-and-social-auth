@@ -1,7 +1,7 @@
 from django.urls import reverse
 from rest_framework import serializers
 from .models import CustomUser
-from django.contrib.auth import authenticate
+from django.conf import settings
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode,urlsafe_base64_decode
@@ -9,12 +9,12 @@ from django.utils.encoding import force_str
 from django.contrib.sites.shortcuts import get_current_site
 from .utils import send_normal_email
 from django.utils.encoding import force_bytes
-from rest_framework_simplejwt.tokens import RefreshToken,Token
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError,InvalidToken
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-
+from django.contrib.auth.hashers import check_password
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password1 = serializers.CharField(max_length=68, min_length=6, write_only=True)
@@ -115,10 +115,14 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
         uidb64 = urlsafe_base64_encode(force_bytes(user.id))
         token=PasswordResetTokenGenerator().make_token(user)
-        site_domain=get_current_site(request).domain
+        # site_domain=get_current_site(request).domain
         
-        relative_link=reverse('password-reset-confirm',kwargs={'uidb64':uidb64,'token':token})
-        abslink=f"http://{site_domain}{relative_link}"
+        frontend_base_url = getattr(settings, "FRONTEND_URL",'http:localhost:5173/')
+
+        # 
+        # relative_link=reverse('password-reset-confirm',kwargs={'uidb64':uidb64,'token':token})
+        
+        abslink=f"{frontend_base_url}/password-reset-confirm/{uidb64}/{token}"
 
         email_body=f"hi {user.email },\n use the link to reset you password \n {abslink}"
 
@@ -128,9 +132,6 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             'to_email':user.email
         }
         send_normal_email(data)
-
-
-
 
         return value
 
@@ -160,6 +161,8 @@ class SetNewPasswordSerializer(serializers.Serializer):
         except (TypeError, ValueError, OverflowError) as e:
             # Handle decoding or invalid ID error
             raise serializers.ValidationError("Invalid user. Error: {}".format(str(e)))
+        
+        
         except CustomUser.DoesNotExist:
             # Handle the case where the user does not exist in the database
             raise serializers.ValidationError("User not found.")
@@ -171,6 +174,8 @@ class SetNewPasswordSerializer(serializers.Serializer):
         if not PasswordResetTokenGenerator().check_token(user, token):
             raise serializers.ValidationError("Token is invalid or expired.")
 
+        if check_password(password,user.password):
+            raise serializers.ValidationError("New password cannot be the same as the old password.")
         try:
             # Set and save the new password
             user.set_password(password)
