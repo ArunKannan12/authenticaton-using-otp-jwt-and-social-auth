@@ -55,6 +55,8 @@ class CustomUserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
+def user_profile_upload_path(instance, filename):
+    return f'profile_pics/{instance.email}/{filename}'
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(max_length=254, unique=True)
@@ -68,6 +70,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     last_login = models.DateTimeField(auto_now=True)
     secret_key = models.CharField(max_length=32, blank=True,null=True)
     otp_expiry = models.DateTimeField(blank=True, null=True)
+    profile_picture = models.URLField(blank=True,null=True)
+    custom_user_profile=models.ImageField( upload_to=user_profile_upload_path,blank=True,null=True)
 
 
     auth_provider=models.CharField( max_length=50,default=AUTH_PROVIDERS.get("email"))

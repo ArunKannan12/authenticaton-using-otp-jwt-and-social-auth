@@ -10,7 +10,8 @@ from .views import (
     SetNewPasswordView,
     LogoutUserView,
     GoogleAuthView,
-    ProfileView
+    ProfileView,
+    facebookLoginView
     
   
 )
@@ -29,8 +30,9 @@ urlpatterns = [
     path('set-new-password/', SetNewPasswordView.as_view(), name='set-new-password'),
     path('logout/', LogoutUserView.as_view(), name='logout'),
 
-    path('social-login/', GoogleAuthView.as_view(), name='social-login'),
-    path('google/', include('social_django.urls', namespace='social')),
+    path('social-login/', GoogleAuthView.as_view(), name='google'),
+    path("facebook/", facebookLoginView.as_view(), name="facebook"),
+    path('google/', include('social_django.urls', namespace='social-login')),
 
 
 ]

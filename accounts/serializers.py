@@ -112,6 +112,8 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
         if user.auth_provider == 'google':
             raise serializers.ValidationError("You cannot reset your password because you logged in via Google. Please use Google login.")
+        if user.auth_provider == 'facebook':
+            raise serializers.ValidationError("You cannot reset your password because you logged in via Facebook. Please use Facebook login.")
 
         uidb64 = urlsafe_base64_encode(force_bytes(user.id))
         token=PasswordResetTokenGenerator().make_token(user)
@@ -222,7 +224,40 @@ class CustomUserSerializer(serializers.ModelSerializer):
             'is_verified',
             'is_active',
             'auth_provider',
+            'custom_user_profile'
         ]
+        read_only_fields = ['email', 'auth_provider']
+
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}"
 
+    def update(self, instance, validated_data):
+        profile_pic = validated_data.get('custom_user_profile', None)
+        if 'custom_user_profile' in validated_data:
+            if profile_pic is None:
+                # Delete the existing profile pic
+                if instance.custom_user_profile:
+                    instance.custom_user_profile.delete(save=False)
+                instance.custom_user_profile = None
+            else:
+                # Update profile pic
+                instance.custom_user_profile = profile_pic
+        
+        # Update other fields (except read-only ones)
+        for attr, value in validated_data.items():
+            if attr != 'custom_user_profile':
+                setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+
+
+class FacebookLoginSerializer(serializers.Serializer):
+    access_token = serializers.CharField(write_only=True)
+
+
+    def validate_access_token(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError('Access token is required')
+
+        return value

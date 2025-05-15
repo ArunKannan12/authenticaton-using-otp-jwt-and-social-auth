@@ -5,10 +5,11 @@ from .serializers import (UserRegisterSerializer,
                           SetNewPasswordSerializer,
                           LogoutuserSerializer,
                           CustomUserSerializer,
-                          SetNewPasswordSerializer
+                          SetNewPasswordSerializer,
+                          FacebookLoginSerializer
                           
                           )
-
+import requests
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -31,6 +32,9 @@ from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 from google.auth import exceptions
 
+from django.contrib.auth import get_user_model
+
+user=get_user_model
 
 class RegisterUserView(GenericAPIView):
     serializer_class = UserRegisterSerializer
@@ -209,6 +213,23 @@ class ProfileView(APIView):
         serializer=CustomUserSerializer(user)
         return Response(serializer.data,status=status.HTTP_200_OK)
 
+
+    def patch(self,request):
+        user = request.user
+        if user.auth_provider.lower() != 'email':
+            return Response(
+                {"detail":"profile updated allowed only for email authenticated users "}
+            ,status=status.HTTP_403_FORBIDDEN)
+        
+
+        serializer = CustomUserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
 class GoogleAuthView(APIView):
 
     permission_classes = [AllowAny]
@@ -228,7 +249,8 @@ class GoogleAuthView(APIView):
             email = idinfo.get('email')
             if email is None:
                 return JsonResponse({'error': 'Invalid ID Token'}, status=400)
-
+            
+            picture_url = idinfo.get('picture')
             # Find or create the user in your database (you can use email to find the user)
             user, created = CustomUser.objects.get_or_create(
                 email=email,
@@ -238,9 +260,14 @@ class GoogleAuthView(APIView):
                     'is_verified': True,
                     'is_active': True,
                     'auth_provider': 'google',
+                    'profile_picture':picture_url
                 }
             )
+            
 
+            if not created and not user.profile_picture and picture_url:
+                user.profile_picture = picture_url
+                user.save()
             # Create JWT token (access + refresh)
             refresh = RefreshToken.for_user(user)
             
@@ -250,6 +277,7 @@ class GoogleAuthView(APIView):
                 'refresh_token': str(refresh),
                 'email': user.email,
                 'full_name': user.get_full_name(),
+                'profile_picture': user.profile_picture,
                 'message': 'Google authentication successful'
             }, status=200)
 
@@ -257,3 +285,60 @@ class GoogleAuthView(APIView):
             # Raised if the token is invalid
             return JsonResponse({'error': 'Invalid ID token'}, status=400)
 
+
+
+User=get_user_model()
+class facebookLoginView(GenericAPIView):
+    serializer_class = FacebookLoginSerializer
+
+
+    def post(self,request,*args,**kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        access_token = serializer.validated_data.get('access_token')
+
+
+        fb_response = requests.get(
+            'https://graph.facebook.com/me',
+            params={
+                'fields':'id,name,email',
+                'access_token':access_token
+            }
+        )
+        if fb_response.status_code != 200:
+            return Response({'error':'invalid facebook token'},status=status.HTTP_400_BAD_REQUEST)
+        
+
+        fb_data = fb_response.json()
+
+        email = fb_data.get('email')
+
+        name = fb_data.get('name','')
+
+        if not email:
+            return Response({'error':'facebook account must provide an email'},status=status.HTTP_400_BAD_REQUEST)
+        
+        first_name = name.split(' ')[0]
+
+        last_name = ' '.join(name.split(' ')[1:]) if len (name.split(' ')) > 1 else ''
+
+        user, created =User.objects.get_or_create(email=email,defaults={
+            'first_name':first_name,
+            'last_name':last_name,
+            'is_verified':True,
+            'is_active':True,
+            'auth_provider':'facebook'
+        })
+
+        if not created:
+            user.first_name = first_name
+            user.last_name = last_name
+            user.save()
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'access_token':str(refresh.access_token),
+            'refresh_token':str(refresh),
+            'email':user.email,
+            'full_name':f"{user.get_full_name()}"
+        },status=status.HTTP_200_OK)

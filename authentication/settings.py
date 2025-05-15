@@ -186,6 +186,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = 'http://localhost:8000/auth/complete/go
 
 AUTHENTICATION_BACKENDS = [
     'social_core.backends.google.GoogleOAuth2',  # Google OAuth2 backend
+    'social_core.backends.facebook.FacebookOAuth2',
     'django.contrib.auth.backends.ModelBackend',  # Default authentication
 ]
 
@@ -212,3 +213,17 @@ SOCIAL_AUTH_LOGIN_ERROR_URL = '/login-error/'
 
 
 FRONTEND_URL = "http://localhost:5173"
+
+
+SOCIAL_AUTH_FACEBOOK_KEY = env('SOCIAL_AUTH_FACEBOOK_KEY')
+SOCIAL_AUTH_FACEBOOK_SECRET = env('SOCIAL_AUTH_FACEBOOK_SECRET')
+
+SOCIAL_AUTH_FACEBOOK_SCOPE = [env('SOCIAL_AUTH_FACEBOOK_SCOPE')]  # turns 'email' into ['email']
+
+SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS = {
+    'fields': env('SOCIAL_AUTH_FACEBOOK_PROFILE_EXTRA_PARAMS_FIELDS')
+}
+
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

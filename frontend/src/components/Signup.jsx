@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useGoogleLogin,GoogleLogin } from '@react-oauth/google';
-
+import FacebookLogin from 'react-facebook-login'
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ const Signup = () => {
   });
 
   const { email, first_name, last_name, password1, password2 } = formData;
-  const [errors, setErrors] = useState();
+  const [errors, setErrors] = useState({});
 
   const user = JSON.parse(localStorage.getItem('user'));
   const jwt_access = JSON.parse(localStorage.getItem('access'));
@@ -86,11 +86,11 @@ const handleGoogleLogin= async (credentialResponse) => {
       });
 
       if (res.status === 200) {
-        const { full_name, email, access_token, refresh_token } = res.data;
-
+        const { full_name, email, access_token, refresh_token,profile_picture } = res.data;
+               
         localStorage.setItem('access', JSON.stringify(access_token));
         localStorage.setItem('refresh', JSON.stringify(refresh_token));
-        localStorage.setItem('user', JSON.stringify({full_name,email}));
+        localStorage.setItem('user', JSON.stringify({full_name,email,profile_picture}));
         console.log('google',res.data)
         toast.success(`Welcome ${full_name}`);
         navigate('/profile');
@@ -102,6 +102,36 @@ const handleGoogleLogin= async (credentialResponse) => {
   }
   
   
+const handleFacebookLogin = async (response) =>{
+
+  if(response.accessToken){
+    try{
+      const res =await axios.post('http://localhost:8000/api/v1/auth/facebook/',{
+        'access_token':response.accessToken,
+      })
+      
+      
+      if (res.status === 200) {
+        const {full_name,email,access_token,refresh_token} = res.data
+
+        localStorage.setItem('access',JSON.stringify(access_token));
+        localStorage.setItem('refresh', JSON.stringify(refresh_token));
+        localStorage.setItem('user', JSON.stringify({ full_name, email }));
+        toast.success(`Welcome ${full_name}`);
+        navigate('/profile');
+       
+      }
+    }catch(error){
+      console.error('facebook login failed',error.response?.data || error.message);
+      toast.error('facebook login failed. Please try again')
+      
+    }
+  }else{
+    toast.error('facebook login failed. No access token received')
+  }
+}
+
+
 
   return (
     <div className="container py-5">
@@ -185,9 +215,15 @@ const handleGoogleLogin= async (credentialResponse) => {
                 <h5 className="text-muted mb-3">or</h5>
 
                 <div className="d-grid gap-3 col-12 col-md-8 mx-auto">
-                  <button className="btn btn-dark btn-lg">
-                    <i className="bi bi-github me-2"></i> Sign up with GitHub
-                  </button>
+                  
+                <FacebookLogin
+                appId='670629355836359'
+                fields="name,email,picture"
+                callback={handleFacebookLogin}
+                cssClass="btn btn-primary btn-lg"
+                icon="fa-facebook"
+                />
+
                 <GoogleLogin
                 onSuccess={handleGoogleLogin}
                 onError={()=>toast.error('Googlee sign-in failed')}/>
