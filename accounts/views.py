@@ -265,7 +265,7 @@ class GoogleAuthView(APIView):
             )
             
 
-            if not created and not user.profile_picture and picture_url:
+            if picture_url and user.profile_picture != picture_url:
                 user.profile_picture = picture_url
                 user.save()
             # Create JWT token (access + refresh)
@@ -315,6 +315,8 @@ class facebookLoginView(GenericAPIView):
 
         name = fb_data.get('name','')
 
+        user_id = fb_data.get('id')
+
         if not email:
             return Response({'error':'facebook account must provide an email'},status=status.HTTP_400_BAD_REQUEST)
         
@@ -322,17 +324,34 @@ class facebookLoginView(GenericAPIView):
 
         last_name = ' '.join(name.split(' ')[1:]) if len (name.split(' ')) > 1 else ''
 
+        pic_response = requests.get(
+            f"https://graph.facebook.com/v19.0/{user_id}/picture",
+            params={
+                "access_token":access_token,
+                "redirect":False,
+                "type":"large",
+
+            }
+        )
+        profile_picture=None
+        if pic_response.status_code == 200:
+            profile_picture = pic_response.json().get("data", {}).get("url")
+
         user, created =User.objects.get_or_create(email=email,defaults={
             'first_name':first_name,
             'last_name':last_name,
             'is_verified':True,
             'is_active':True,
-            'auth_provider':'facebook'
+            'auth_provider':'facebook',
+            'profile_picture':profile_picture
         })
 
         if not created:
             user.first_name = first_name
             user.last_name = last_name
+            user.auth_procider = 'facebook'
+            if profile_picture:
+                user.profile_picture = profile_picture
             user.save()
         refresh = RefreshToken.for_user(user)
 
@@ -340,5 +359,6 @@ class facebookLoginView(GenericAPIView):
             'access_token':str(refresh.access_token),
             'refresh_token':str(refresh),
             'email':user.email,
-            'full_name':f"{user.get_full_name()}"
+            'full_name':f"{user.get_full_name()}",
+            'profile_picture': user.profile_picture
         },status=status.HTTP_200_OK)

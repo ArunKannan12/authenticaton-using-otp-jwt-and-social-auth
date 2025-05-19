@@ -69,6 +69,11 @@ class LoginSerializer(serializers.Serializer):
         except CustomUser.DoesNotExist:
             raise AuthenticationFailed('Account does not exist')
 
+        if user_obj.auth_provider != 'email':
+            raise AuthenticationFailed(
+                f"This account is registered via {user_obj.auth_provider.title()}. Please use {user_obj.auth_provider.title()} login instead."
+            )
+
         if not user_obj.check_password(password1):
             raise AuthenticationFailed('Incorrect password')
 

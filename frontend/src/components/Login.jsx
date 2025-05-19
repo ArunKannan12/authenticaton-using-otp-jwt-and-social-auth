@@ -69,11 +69,24 @@ const Login = () => {
         toast.success('Login successful!');
       }
     } catch (error) {
-      if (error.response?.status === 401) {
-        const errMsg = error.response?.data?.detail || 'Invalid email or password';
-        setError(errMsg);
-        toast.error(errMsg);
-      } else {
+
+      const status = error.response?.status;
+      const errDetail = error.response?.data?.detail || '';
+
+      if (status === 401 || status === 400) {
+        if ( 
+          errDetail === "This account is registered via Google. Please use Google login instead." ||
+          errDetail === "This account is registered via Facebook. Please use Facebook login instead."
+          ) {
+          setError(errDetail);
+          toast.error(errDetail)
+    
+        } else {
+        const fallback = errDetail || 'Invalid email or password';
+        setError(fallback);
+        toast.error(fallback);
+        }
+      }else{
         setError('Something went wrong');
         toast.error('Something went wrong, please try again');
       }

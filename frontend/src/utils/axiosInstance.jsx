@@ -12,9 +12,8 @@ const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use(async (req) => {
-  const access = JSON.parse(localStorage.getItem("access"));
-
-  const refresh = JSON.parse(localStorage.getItem("refresh"));
+  const access = localStorage.getItem("access");
+  const refresh = localStorage.getItem("refresh");
 
 
   if (!access || !refresh) {

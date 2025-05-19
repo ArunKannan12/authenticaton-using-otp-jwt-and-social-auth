@@ -88,8 +88,8 @@ const handleGoogleLogin= async (credentialResponse) => {
       if (res.status === 200) {
         const { full_name, email, access_token, refresh_token,profile_picture } = res.data;
                
-        localStorage.setItem('access', JSON.stringify(access_token));
-        localStorage.setItem('refresh', JSON.stringify(refresh_token));
+        localStorage.setItem('access',access_token);
+        localStorage.setItem('refresh',refresh_token);
         localStorage.setItem('user', JSON.stringify({full_name,email,profile_picture}));
         console.log('google',res.data)
         toast.success(`Welcome ${full_name}`);
@@ -110,14 +110,17 @@ const handleFacebookLogin = async (response) =>{
         'access_token':response.accessToken,
       })
       
+      console.log('fb data',res.data);
       
       if (res.status === 200) {
-        const {full_name,email,access_token,refresh_token} = res.data
+        const {full_name,email,access_token,refresh_token,profile_picture} = res.data
+        // ✅ FIXED version:
+        localStorage.setItem('access', access_token);
+        localStorage.setItem('refresh', refresh_token);
+        localStorage.setItem('user', JSON.stringify({ full_name, email, profile_picture }));
 
-        localStorage.setItem('access',JSON.stringify(access_token));
-        localStorage.setItem('refresh', JSON.stringify(refresh_token));
-        localStorage.setItem('user', JSON.stringify({ full_name, email }));
         toast.success(`Welcome ${full_name}`);
+        console.log('google',res.data)
         navigate('/profile');
        
       }
