@@ -69,7 +69,7 @@ class LoginSerializer(serializers.Serializer):
         except CustomUser.DoesNotExist:
             raise AuthenticationFailed('Account does not exist')
 
-        if user_obj.auth_provider != 'email':
+        if user_obj.auth_provider != 'Email':
             raise AuthenticationFailed(
                 f"This account is registered via {user_obj.auth_provider.title()}. Please use {user_obj.auth_provider.title()} login instead."
             )
@@ -202,8 +202,12 @@ class LogoutuserSerializer(serializers.Serializer):
 
 
     def validate(self, attrs):
-        self.token=attrs.get('refresh').strip()
-        return super().validate(attrs)
+        refresh = attrs.get('refresh')
+        if not refresh:
+            raise ValidationError({'refresh': 'Refresh token is required.'})
+        
+        self.token = refresh.strip()
+        return attrs
     
 
     def save(self,**kwargs):

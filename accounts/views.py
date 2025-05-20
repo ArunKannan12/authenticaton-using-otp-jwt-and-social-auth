@@ -193,16 +193,14 @@ class SetNewPasswordView(GenericAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LogoutUserView(GenericAPIView):
-    serializer_class=LogoutuserSerializer
-    permission_classes=[AllowAny]
+    serializer_class = LogoutuserSerializer
+    permission_classes = [AllowAny]
 
-
-    def post(self,request):
-        serializer=self.serializer_class(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response({'detail':'logged out successfully'},status=status.HTTP_200_OK)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Logged out successfully.'}, status=status.HTTP_200_OK)
     
 class ProfileView(APIView):
     permission_classes=[IsAuthenticated]

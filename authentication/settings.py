@@ -175,7 +175,7 @@ DEFAULT_FROM_EMAIL = 'no-reply@example.com'
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),  # Corrected the typo
+    "ACCESS_TOKEN_LIFETIME": timedelta(seconds=30),  # Corrected the typo
     "REFRESH_TOKEN_LIFETIME":timedelta(days=1)   
 }
 

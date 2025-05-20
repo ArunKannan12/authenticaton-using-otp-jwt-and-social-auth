@@ -22,8 +22,8 @@ const Login = () => {
   useEffect(()=>{
     
     const user = JSON.parse(localStorage.getItem('user'));
-    const jwt_access = JSON.parse(localStorage.getItem('access'));
-    const jwt_refresh = JSON.parse(localStorage.getItem('refresh'));
+    const jwt_access = localStorage.getItem('access');
+    const jwt_refresh =localStorage.getItem('refresh');
     if (user && jwt_access && jwt_refresh) {
       navigate('/profile')
       return 
@@ -61,8 +61,8 @@ const Login = () => {
       }
       if (res.status === 200) {
         localStorage.setItem("user",JSON.stringify(user))
-        localStorage.setItem('access',JSON.stringify(response.access_token))
-        localStorage.setItem('refresh',JSON.stringify(response.refresh_token))
+        localStorage.setItem('access',response.access_token)
+        localStorage.setItem('refresh',response.refresh_token)
 
         
         navigate('/profile');
