@@ -14,7 +14,7 @@ import requests
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from .models import CustomUser
+from .models import CustomUser,OTPResendLog
 import pyotp
 from django.http import JsonResponse
 from .utils import send_otp_via_email
@@ -27,14 +27,13 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from datetime import timedelta
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
-
+from django.contrib.auth import get_user_model
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 from google.auth import exceptions
 
-from django.contrib.auth import get_user_model
 
-user=get_user_model
+User=get_user_model
 
 class RegisterUserView(GenericAPIView):
     serializer_class = UserRegisterSerializer
@@ -61,25 +60,80 @@ class RegisterUserView(GenericAPIView):
 
 
 class SendOTPView(APIView):
-    """Send OTP to user on email"""
     def post(self, request):
         email = request.data.get('email')
         if not email:
-            return JsonResponse({'error':'email is required'},status=400)
+            return JsonResponse({'error':'email is required'}, status=400)
 
         try:
             user = CustomUser.objects.get(email=email)
         except CustomUser.DoesNotExist:
             return JsonResponse({'error': 'User not found'}, status=404)
+
         if user.is_verified:
             return JsonResponse({'error': 'Account already verified. No need to send OTP again.'}, status=400)
-        expiry_time = timezone.now() + timedelta(minutes=5)
-        user.secret_key = pyotp.random_base32()  # Reset secret key on new OTP request
-        user.otp_expiry = expiry_time 
-        user.is_active = False # Set OTP expiry time (e.g., 5 minutes)
+
+        now = timezone.now()
+        one_hour_ago = now - timedelta(hours=1)
+
+        recent_logs = OTPResendLog.objects.filter(user=user, sent_at__gte=one_hour_ago).order_by('-sent_at')
+
+        if recent_logs.exists():
+            last_sent = recent_logs[0].sent_at
+            resend_count = recent_logs.count()
+
+            cooldown_durations = [0, 3, 5, 7, 10]  # progressive cooldown in seconds
+            cooldown_index = min(resend_count, len(cooldown_durations) - 1)
+            cooldown_seconds = cooldown_durations[cooldown_index]
+
+            seconds_since_last = (now - last_sent).total_seconds()
+            if seconds_since_last < cooldown_seconds:
+                wait = cooldown_seconds - seconds_since_last
+                return JsonResponse(
+                    {'error': f'Please wait {int(wait)} seconds before requesting a new OTP.'},
+                    status=429
+                )
+
+        if recent_logs.count() >= 5:
+            user.block_count = getattr(user, 'block_count', 0) + 1
+            block_durations = [
+                timedelta(seconds=10),   # 10 seconds block on 1st block_count
+                timedelta(seconds=20),   # 20 seconds on 2nd block_count
+                timedelta(seconds=30),   # 30 seconds on 3rd block_count
+            ]
+
+            if user.block_count <= len(block_durations):
+                user.blocked_until = now + block_durations[user.block_count - 1]
+            else:
+                user.is_permanently_banned = True
+                user.blocked_until = None
+                user.save(update_fields=['block_count', 'blocked_until', 'is_permanently_banned'])
+                return JsonResponse({'error': 'Account permanently banned due to abuse.'}, status=403)
+
+            user.save(update_fields=['block_count', 'blocked_until'])
+            remaining = int((user.blocked_until - now).total_seconds())
+            return JsonResponse({'error': f'Too many attempts. Try again after {remaining} seconds.'}, status=403)
+
+        # Check if user is currently blocked
+        if getattr(user, 'blocked_until', None) and user.blocked_until > now:
+            remaining = int((user.blocked_until - now).total_seconds())
+            return JsonResponse({'error': f'Account temporarily blocked. Try again after {remaining} seconds.'}, status=403)
+
+        expiry_time = now + timedelta(minutes=5)
+        user.secret_key = pyotp.random_base32()
+        user.otp_expiry = expiry_time
+        user.is_active = False
         user.save()
-        send_otp_via_email(user)  # Send OTP email
+
+        send_otp_via_email(user)
+
+        ip = request.META.get('REMOTE_ADDR')
+        ua = request.META.get('HTTP_USER_AGENT', '')
+        OTPResendLog.objects.create(user=user, ip_address=ip, user_agent=ua)
+
         return JsonResponse({'message': 'OTP sent successfully to your email'}, status=200)
+
+
 
 class VerifyOTPView(APIView):
     """Verify OTP entered by the user"""

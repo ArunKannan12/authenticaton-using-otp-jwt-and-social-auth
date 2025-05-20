@@ -175,8 +175,8 @@ DEFAULT_FROM_EMAIL = 'no-reply@example.com'
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(seconds=30),  # Corrected the typo
-    "REFRESH_TOKEN_LIFETIME":timedelta(days=1)   
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),   # Short-lived access token for security
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),       # Longer refresh toke
 }
 
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY=env("SOCIAL_AUTH_GOOGLE_OAUTH2_KEY")

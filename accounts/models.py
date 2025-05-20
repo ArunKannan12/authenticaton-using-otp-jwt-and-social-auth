@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework_simplejwt.tokens import RefreshToken
 import pyotp
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 AUTH_PROVIDERS = {
     'email': 'Email',
@@ -76,6 +77,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     auth_provider=models.CharField( max_length=50,default=AUTH_PROVIDERS.get("email"))
 
+
+    block_count = models.PositiveIntegerField(default=0)
+    blocked_until = models.DateTimeField(null=True, blank=True)
+    is_permanently_banned = models.BooleanField(default=False)
     
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ['first_name', 'last_name']
@@ -108,3 +113,12 @@ class OneTimePassword(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name}-passcode"
+
+
+user=get_user_model()
+
+class OTPResendLog(models.Model):
+    user = models.ForeignKey(user, on_delete=models.CASCADE)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=256, blank=True)

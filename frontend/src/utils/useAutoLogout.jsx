@@ -1,22 +1,25 @@
-// useAutoLogout.js
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { refreshAccessToken } from './refreshAccessToken';
 import { jwtDecode } from 'jwt-decode';
 
-const INACTIVITY_LIMIT = 30 * 1000;
-const MODAL_COUNTDOWN = 10 * 1000;
+const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
+const MODAL_COUNTDOWN = 5 * 60 * 1000;   // 5 minutes
 
 const useAutoLogout = () => {
   const navigate = useNavigate();
   const inactivityTimerId = useRef(null);
   const expiryCheckTimerId = useRef(null);
   const countdownTimerId = useRef(null);
+  const isLoggingOut = useRef(false);
 
   const [modalOpen, setModalOpen] = useState(false);
 
   const logout = () => {
+    if (isLoggingOut.current) return;
+    isLoggingOut.current = true;
+
     clearTimeout(inactivityTimerId.current);
     clearTimeout(expiryCheckTimerId.current);
     clearTimeout(countdownTimerId.current);
@@ -27,17 +30,34 @@ const useAutoLogout = () => {
     navigate('/login');
   };
 
-  const startLogoutCountdown = () => {
+  const startLogoutCountdown = async () => {
     setModalOpen(true);
+
+    const access = localStorage.getItem('access');
+    let countdown = MODAL_COUNTDOWN;
+
+    if (access) {
+      try {
+        const { exp } = jwtDecode(access);
+        const timeUntilExpiry = exp * 1000 - Date.now();
+        if (timeUntilExpiry < countdown) {
+          countdown = timeUntilExpiry;
+        }
+      } catch (err) {
+        console.error("Error decoding token:", err);
+      }
+    }
+
     countdownTimerId.current = setTimeout(() => {
       logout();
-    }, MODAL_COUNTDOWN);
+    }, countdown);
   };
 
   const resetInactivityTimer = () => {
     clearTimeout(inactivityTimerId.current);
     clearTimeout(countdownTimerId.current);
     setModalOpen(false);
+
     inactivityTimerId.current = setTimeout(() => {
       startLogoutCountdown();
     }, INACTIVITY_LIMIT);
@@ -51,10 +71,7 @@ const useAutoLogout = () => {
     let accessToken = localStorage.getItem('access');
     const refreshToken = localStorage.getItem('refresh');
 
-    if (!refreshToken) {
-      logout();
-      return;
-    }
+    if (!refreshToken) return logout();
 
     try {
       if (!accessToken) {
@@ -70,7 +87,7 @@ const useAutoLogout = () => {
       if (timeUntilExpiry <= 0) {
         const newToken = await refreshAccessToken();
         if (!newToken) return logout();
-        setupTokenExpiryCheck();
+        setupTokenExpiryCheck(); // retry
       } else {
         expiryCheckTimerId.current = setTimeout(async () => {
           const refreshed = await refreshAccessToken();
